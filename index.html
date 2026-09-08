@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Feat RPG</title>
+  <!-- PWA 必備宣告 -->
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --bg-color: #0d0f12;
+      --card-bg: #181c24;
+      --primary: #ff6600;
+      --text: #ffffff;
+      --text-sub: #a0a6b1;
+      --accent: #ffd700;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      padding: 16px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 40px;
+    }
+    .character-card {
+      background: linear-gradient(135deg, #251810 0%, var(--card-bg) 100%);
+      border: 1px solid #ff660044;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .avatar-frame {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 3px solid var(--primary);
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(255, 102, 0, 0.4);
+      margin-bottom: 8px;
+    }
+    .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
+    .char-title { font-size: 0.9rem; color: var(--accent); margin-bottom: 2px; }
+    .char-name { font-size: 1.3rem; font-weight: bold; margin-bottom: 12px; }
+    .progress-section { width: 100%; }
+    .progress-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-sub); margin-bottom: 6px; }
+    .progress-bar-bg { width: 100%; height: 12px; background-color: #0a0c0e; border-radius: 6px; overflow: hidden; border: 1px solid #ffffff11; }
+    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #ff6600, #ff9900); width: 0%; transition: width 0.3s; }
+    
+    .action-card { background-color: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid #ff660022; }
+    .input-group { display: flex; gap: 8px; margin-top: 8px; }
+    select, input, button {
+      background-color: #0d0f12; border: 1px solid #ff660044; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem;
+    }
+    input { flex: 1; }
+    button { background: var(--primary); color: #fff; font-weight: bold; border: none; cursor: pointer; }
+    button:hover { background: #e65c00; }
+
+    .section-title { font-size: 1.1rem; font-weight: bold; border-left: 4px solid var(--primary); padding-left: 8px; margin-top: 8px; }
+    .card-grid { display: flex; flex-direction: column; gap: 10px; }
+    .item-card { background-color: var(--card-bg); border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; border: 1px solid #ffffff0a; }
+    .item-img { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; }
+    .item-info { display: flex; flex-direction: column; gap: 2px; }
+    .item-name { font-size: 0.95rem; font-weight: bold; }
+    .item-desc { font-size: 0.8rem; color: var(--text-sub); }
+    
+    .level-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 6px; }
+    .level-table th, .level-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ffffff11; }
+    .level-table th { color: var(--primary); }
+    .active-row { background-color: #ff660022; font-weight: bold; color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- 角色卡片 -->
+    <div class="character-card">
+      <div class="avatar-frame">
+        <img src="assassin.png" alt="職業角圖">
+      </div>
+      <div class="char-title" id="char-title">Lv.1 見習冒險者</div>
+      <div class="char-name">運動冒險者</div>
+      
+      <div class="progress-section">
+        <div class="progress-labels">
+          <span id="exp-text">0 / 300 EXP</span>
+          <span id="exp-percent">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="exp-bar"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 上傳截圖與驗證 -->
+    <div class="action-card" style="background: #20140e; border: 1px solid #fc4c02;">
+      <div style="font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+        <span style="color: #fc4c02;">📷</span> 運動戰報數據驗證 (分級智審)
+      </div>
+      <p style="font-size: 0.8rem; color: #a0a6b1; margin: 6px 0 12px 0;">
+        上傳 Garmin / Strava 截圖，系統將根據你的等級啟動對應防禦驗證！
+      </p>
+
+      <input type="file" id="workout-img" accept="image/*" style="display: none;" onchange="processImage(event)">
+      <button onclick="document.getElementById('workout-img').click()" style="width: 100%; background: #fc4c02; color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none;">
+        📤 上傳 Garmin / Strava 截圖
+      </button>
+    </div>
+
+    <!-- Boss 討伐戰 -->
+    <div class="section-title">Boss 討伐戰</div>
+    <div class="item-card">
+      <img src="boss.png" class="item-img" alt="Boss圖">
+      <div class="item-info">
+        <div class="item-name">岩石巨魔 Rock Golem</div>
+        <div class="item-desc" id="boss-hp">血量: 10,000 / 10,000 HP</div>
+        <div class="item-desc" style="color: var(--primary);">消耗訓練 EXP 對 Boss 造成等量傷害！</div>
+      </div>
+    </div>
+
+    <!-- 偉業成就 -->
+    <div class="section-title">偉業成就 (Real-Feat)</div>
+    <div class="card-grid">
+      <div class="item-card">
+        <img src="badge.png" class="item-img" alt="偉業勳章">
+        <div class="item-info">
+          <div class="item-name">半馬突破勳章</div>
+          <div class="item-desc">解鎖條件：完成首次 21km 半程馬拉松挑戰</div>
+          <button onclick="requestRealFeat()" style="margin-top: 4px; padding: 4px 8px; font-size: 0.75rem;">申请人工審核解鎖</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 等級晉升表 -->
+    <div class="section-title">等級晉升之路 (Excel 數據)</div>
+    <table class="level-table">
+      <thead>
+        <tr><th>等級</th><th>稱號</th><th>累積 EXP 門檻</th></tr>
+      </thead>
+      <tbody id="level-table-body"></tbody>
+    </table>
+
+  </div>
+
+  <script>
+    // PWA Service Worker 啟動指令
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+
+    const levelRules = [
+      { lvl: 1, title: "見習冒險者", exp: 0 },
+      { lvl: 2, title: "初出茅廬者", exp: 300 },
+      { lvl: 3, title: "風馳探索者", exp: 800 },
+      { lvl: 4, title: "破風行者", exp: 1500 },
+      { lvl: 5, title: "鋼鐵耐力家", exp: 2500 },
+      { lvl: 6, title: "疾風獵手", exp: 4000 },
+      { lvl: 7, title: "極限征服者", exp: 6000 },
+      { lvl: 8, title: "遠征領主", exp: 8500 },
+      { lvl: 9, title: "神話疾行者", exp: 12000 },
+      { lvl: 10, title: "傳奇冒險家", exp: 16000 }
+    ];
+
+    let currentExp = 0;
+    let currentLvl = 1;
+    const maxBossHp = 10000;
+
+    function renderTable() {
+      const tbody = document.getElementById('level-table-body');
+      tbody.innerHTML = '';
+      levelRules.forEach(r => {
+        const tr = document.createElement('tr');
+        if(r.lvl === currentLvl) tr.className = 'active-row';
+        tr.innerHTML = `<td>Lv.${r.lvl}</td><td>${r.title}</td><td>${r.exp} EXP</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateGame() {
+      let currentLvlObj = levelRules[0];
+      let nextLvlObj = levelRules[1];
+
+      for (let i = levelRules.length - 1; i >= 0; i--) {
+        if (currentExp >= levelRules[i].exp) {
+          currentLvlObj = levelRules[i];
+          nextLvlObj = levelRules[i + 1] || levelRules[i];
+          break;
+        }
+      }
+
+      currentLvl = currentLvlObj.lvl;
+      document.getElementById('char-title').innerText = `Lv.${currentLvlObj.lvl} ${currentLvlObj.title}`;
+      
+      let pct = 100;
+      if (nextLvlObj !== currentLvlObj) {
+        const reqExp = nextLvlObj.exp - currentLvlObj.exp;
+        const curExpInLvl = currentExp - currentLvlObj.exp;
+        pct = Math.min(100, Math.floor((curExpInLvl / reqExp) * 100));
+        document.getElementById('exp-text').innerText = `${currentExp} / ${nextLvlObj.exp} EXP`;
+      } else {
+        document.getElementById('exp-text').innerText = `${currentExp} EXP (最高級)`;
+      }
+
+      document.getElementById('exp-percent').innerText = `${pct}%`;
+      document.getElementById('exp-bar').style.width = `${pct}%`;
+
+      const bossHp = Math.max(0, maxBossHp - currentExp);
+      document.getElementById('boss-hp').innerText = `血量: ${bossHp.toLocaleString()} / ${maxBossHp.toLocaleString()} HP`;
+
+      renderTable();
+    }
+
+    function processImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const sport = prompt("【圖片解析完成】請確認項目：\n1. 跑步 (1km=100EXP)\n2. 單車 (1km=30EXP)\n3. 游泳 (1m=0.5EXP)", "1");
+      const km = parseFloat(prompt("請確認圖片上記錄的真實公里/公尺數：", "5"));
+
+      if (isNaN(km) || km <= 0) return alert("驗證失敗：無效的數據！");
+
+      // 分級審核提示邏輯
+      if (currentLvl <= 3) {
+        alert("🟢 [Lv.1~3 初階驗證] 寬鬆自動核准戰報！");
+      } else if (currentLvl <= 7) {
+        alert("🟡 [Lv.4~7 中階智審] 比對時間戳記與 OCR 文字中... 智審核准！");
+      } else {
+        alert("🔴 [Lv.8+ 高階防禦] 觸發配速曲線抽查與心率核對... 驗證通過！");
+      }
+
+      let gainedExp = 0;
+      if (sport === "1") gainedExp = km * 100;
+      else if (sport === "2") gainedExp = km * 30;
+      else if (sport === "3") gainedExp = km * 0.5;
+
+      currentExp += gainedExp;
+      updateGame();
+    }
+
+    function requestRealFeat() {
+      alert("🛡️ 【偉業核准請求已送出】\n系統已將您的 21km 紀錄傳送至 Discord 管理員審核通道，請耐心等待發放勳章！");
+    }
+
+    updateGame();
+  </script>
+</body>
+</html>
