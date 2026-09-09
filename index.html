@@ -57,16 +57,21 @@
     };
 
     const game = new Phaser.Game(config);
-    let player, boss, bossWarning;
+    let player, playerGfx, boss, bossWarning;
     let isParryWindow = false, isBossStunned = false;
-    let bossHp = 2000, bossHpText, statusText;
+    let bossHp = 2000, bossHpText, statusText, debugText;
 
     function preload() {
-      // 容錯載入：強制跳過可能導致毀損的跨網域腳本，直接讀取根目錄與 assets 檔
+      // 載入綠龍 Boss
       this.load.image('boss', 'assets/boss.png');
-      this.load.image('knight_idle', 'assets/Idle.png');
-      this.load.image('knight_atk1', 'assets/Attack1.png');
-      this.load.image('knight_parry', 'assets/Parry.png');
+
+      // 監聽圖檔載入失敗事件（除錯用）
+      this.load.on('loaderror', (fileObj) => {
+        if (debugText) debugText.setText(`⚠️ 圖檔讀取失敗: ${fileObj.src}`);
+      });
+
+      // 嘗試讀取 local 圖檔 (若失敗會自動降級用 Canvas 騎士替代)
+      this.load.image('knight_img', 'assets/Idle.png');
     }
 
     function create() {
@@ -76,13 +81,38 @@
       // 地板線
       this.add.rectangle(w / 2, h * 0.75, w, 4, 0xff6600);
 
-      // 建立玩家角色（直接使用獨立載入的精靈圖）
-      player = this.add.sprite(w * 0.25, h * 0.62, 'knight_idle').setScale(1.5);
-      
+      // 建立玩家容器
+      player = this.add.container(w * 0.25, h * 0.62);
+
+      // 優先使用載入的圖片，若圖片載入失敗則用向量畫出精緻騎士
+      if (this.textures.exists('knight_img') && this.textures.get('knight_img').key !== '__DEFAULT') {
+        const sprite = this.add.sprite(0, 0, 'knight_img').setScale(1.2);
+        player.add(sprite);
+      } else {
+        // 自製向量藍衣劍士 (絕對不會變成綠框)
+        playerGfx = this.add.graphics();
+        // 身體
+        playerGfx.fillStyle(0x00aaff, 1);
+        playerGfx.fillRect(-15, -40, 30, 50);
+        // 頭部
+        playerGfx.fillStyle(0xffcc99, 1);
+        playerGfx.fillCircle(0, -50, 12);
+        // 披風
+        playerGfx.fillStyle(0x333333, 1);
+        playerGfx.fillRect(-22, -40, 8, 45);
+        // 大劍
+        playerGfx.fillStyle(0xeeeeee, 1);
+        playerGfx.fillRect(12, -60, 6, 60);
+        playerGfx.fillStyle(0xffaa00, 1);
+        playerGfx.fillRect(8, -20, 14, 6);
+
+        player.add(playerGfx);
+      }
+
       // 建立 Boss (綠龍)
       boss = this.add.sprite(w * 0.7, h * 0.52, 'boss').setScale(0.6);
 
-      // 綠龍自然呼吸動態
+      // 綠龍呼吸動畫
       this.tweens.add({
         targets: boss,
         y: h * 0.50,
@@ -95,11 +125,12 @@
       // 招架提示光圈
       bossWarning = this.add.circle(w * 0.7, h * 0.3, 30, 0xffff00).setVisible(false);
 
-      // 血條與文字提示
+      // UI 介面
       bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
-      statusText = this.add.text(20, 55, '戰鬥開始！請點擊按鈕發動攻擊...', { fontSize: '15px', fill: '#ffffff' });
+      statusText = this.add.text(20, 50, '戰鬥開始！請點擊按鈕發動攻擊...', { fontSize: '15px', fill: '#ffffff' });
+      debugText = this.add.text(20, 75, '路徑檢查中...', { fontSize: '12px', fill: '#ff3333' });
 
-      // 按鈕綁定
+      // 按鈕事件
       bindBtn('btn-left', () => { player.x -= 30; statusText.setText('向左位移'); });
       bindBtn('btn-right', () => { player.x += 30; statusText.setText('向右位移'); });
       bindBtn('btn-attack', () => doAttack(this));
@@ -130,8 +161,6 @@
       setTimeout(() => {
         if (isParryWindow && !isBossStunned) {
           statusText.setText('💥 招架太慢！受到重擊！');
-          player.setTint(0xff0000);
-          setTimeout(() => player.clearTint(), 300);
         }
         bossWarning.setVisible(false);
         if (!isBossStunned) boss.clearTint();
@@ -145,10 +174,6 @@
         isBossStunned = true;
         bossWarning.setVisible(false);
         boss.setTint(0xffff00);
-        
-        // 切換為架刀動作圖片
-        player.setTexture('knight_parry');
-        setTimeout(() => player.setTexture('knight_idle'), 600);
 
         statusText.setText('⚡ PARRY 成功！綠龍陷入硬直！【快按 SS3！】');
 
@@ -168,21 +193,12 @@
       bossHp = Math.max(0, bossHp - dmg);
       bossHpText.setText(`BOSS HP: ${bossHp} / 2000`);
 
-      // 切換為攻擊動作圖片 + 衝刺位移
-      player.setTexture('knight_atk1');
-      scene.tweens.add({ 
-        targets: player, 
-        x: player.x + 30, 
-        duration: 90, 
-        yoyo: true,
-        onComplete: () => player.setTexture('knight_idle')
-      });
-
+      scene.tweens.add({ targets: player, x: player.x + 30, duration: 90, yoyo: true });
       scene.cameras.main.shake(100, 0.008);
       boss.setTint(0xff6666);
       setTimeout(() => { if (!isBossStunned) boss.clearTint(); }, 100);
 
-      statusText.setText(`⚔️ 騎士揮劍攻擊！造成 ${dmg} 傷害`);
+      statusText.setText(`⚔️ 揮劍攻擊！造成 ${dmg} 傷害`);
     }
 
     function doSS3(scene) {
@@ -194,14 +210,10 @@
       bossHp = Math.max(0, bossHp - 600);
       bossHpText.setText(`BOSS HP: ${bossHp} / 2000`);
 
-      player.setTexture('knight_atk1');
       scene.cameras.main.shake(350, 0.02);
       boss.setTint(0xff0000);
       
-      setTimeout(() => { 
-        player.setTexture('knight_idle');
-        if (isBossStunned) boss.setTint(0xffff00); 
-      }, 400);
+      setTimeout(() => { if (isBossStunned) boss.setTint(0xffff00); }, 400);
 
       statusText.setText('🔥 SS3 必殺連攜爆發！造成 600 巨額暴擊傷害！');
     }
