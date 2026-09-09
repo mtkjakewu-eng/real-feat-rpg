@@ -64,8 +64,13 @@
     function preload() {
       // 1. 載入 Boss (綠龍) 圖片
       this.load.image('boss', 'assets/boss.png');
-      // 2. 載入騎士動作圖檔 (預設使用 assets 資料夾下的 knight_idle，若未上傳會先用代碼補上)
-      this.load.image('knight', 'https://labs.phaser.io/assets/sprites/knight.png');
+      
+      // 2. 直接載入 assets 資料夾內的騎士圖檔 (請確認檔名與大小)
+      // 若你的檔案放在 assets/Idle.png，請修改為 'assets/Idle.png'
+      this.load.spritesheet('knight_idle', 'assets/Idle.png', { 
+        frameWidth: 128,  // 請依據 Knight Hero 圖片單格寬度調整 (常見為 64 或 128)
+        frameHeight: 64 
+      });
     }
 
     function create() {
@@ -75,13 +80,22 @@
       // 地板線條
       this.add.rectangle(w / 2, h * 0.75, w, 4, 0xff6600);
 
-      // 建立玩家角色 (騎士)
-      player = this.add.sprite(w * 0.25, h * 0.62, 'knight').setScale(2);
-      
-      // 建立 Boss (綠龍) 放置於右側，並放大呈現氣勢
+      // 建立騎士待機動畫
+      this.anims.create({
+        key: 'idle_anim',
+        frames: this.anims.generateFrameNumbers('knight_idle'),
+        frameRate: 8,
+        repeat: -1
+      });
+
+      // 建立玩家角色並播放待機動畫
+      player = this.add.sprite(w * 0.25, h * 0.62, 'knight_idle').setScale(2);
+      player.play('idle_anim');
+
+      // 建立 Boss (綠龍)
       boss = this.add.sprite(w * 0.7, h * 0.52, 'boss').setScale(0.6);
 
-      // 程式動態：為綠龍加上自然呼吸浮動動畫 (Tween)
+      // 綠龍呼吸動畫
       this.tweens.add({
         targets: boss,
         y: h * 0.50,
