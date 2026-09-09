@@ -62,9 +62,17 @@
     let bossHp = 2000, bossHpText, statusText;
 
     function preload() {
-      // 載入綠龍 Boss 與對應檔名的騎士動作
+      // 載入綠龍 Boss
       this.load.image('boss', 'assets/boss.png');
-      this.load.image('knight_idle', 'assets/knight_idle.png');
+
+      // 1. 將 knight_idle 改回以 spritesheet 載入
+      // 假設單影格寬度是 128px (若畫面上有被裁切或變形，請微調 128 這個數值)
+      this.load.spritesheet('knight_idle', 'assets/knight_idle.png', {
+        frameWidth: 128,
+        frameHeight: 64
+      });
+      
+      // 其它單動作圖檔繼續用 image 載入
       this.load.image('knight_atk1', 'assets/knight_atk1.png');
       this.load.image('knight_atk2', 'assets/knight_atk2.png');
       this.load.image('knight_parry', 'assets/knight_parry.png');
@@ -78,9 +86,18 @@
       // 地板線
       this.add.rectangle(w / 2, h * 0.75, w, 4, 0xff6600);
 
-      // 建立玩家角色 (預設待機)
-      player = this.add.sprite(w * 0.25, h * 0.62, 'knight_idle').setScale(1.8);
-      
+      // 2. 建立騎士待機循環動畫
+      this.anims.create({
+        key: 'anim_idle',
+        frames: this.anims.generateFrameNumbers('knight_idle', { start: 0, end: 4 }),
+        frameRate: 8,
+        repeat: -1
+      });
+
+      // 建立玩家角色並播放動畫
+      player = this.add.sprite(w * 0.25, h * 0.62, 'knight_idle').setScale(2);
+      player.play('anim_idle');
+
       // 建立 Boss (綠龍)
       boss = this.add.sprite(w * 0.7, h * 0.52, 'boss').setScale(0.6);
 
