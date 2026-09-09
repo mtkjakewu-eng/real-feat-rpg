@@ -9,9 +9,11 @@
     * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0c0e; color: #fff; font-family: sans-serif; overflow: hidden; }
     #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
-    #canvas-container { width: 100%; height: 65vh; position: relative; background: #0e121a; }
+    /* 遊戲畫面容器，確保 overflow 正常且邊界明確 */
+    #canvas-container { width: 100%; height: 60vh; position: relative; background: #0e121a; overflow: hidden; }
     .instruction-overlay { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10; }
-    .control-panel { height: 35vh; background: #141820; border-top: none; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
+    /* 控制區 panel */
+    .control-panel { height: 40vh; background: #141820; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
     .dpad-group, .action-group { display: flex; gap: 10px; align-items: center; }
     .btn { width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ff6600; background: #221810; color: #fff; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline: none; }
     .btn:active { background: #ff6600 !important; transform: scale(0.9); }
@@ -49,8 +51,8 @@
 
     const config = {
       type: Phaser.AUTO,
-      width: container.clientWidth,
-      height: container.clientHeight,
+      width: container.getBoundingClientRect().width,
+      height: container.getBoundingClientRect().height,
       parent: 'canvas-container',
       physics: { default: 'arcade', arcade: { gravity: { y: 0 }, debug: false } },
       scene: { preload: preload, create: create, update: update }
@@ -73,8 +75,12 @@
     }
 
     function create() {
-      const w = this.cameras.main.width;
-      const h = this.cameras.main.height;
+      // 取得 canvas 區域的真實寬高
+      const w = this.scale.width;
+      const h = this.scale.height;
+
+      // 定義角色基準 Y 軸，強制在容器上半部的 45% 高度位置
+      const groundY = h * 0.45;
 
       // 註冊動作動畫
       this.anims.create({ key: 'anim_idle', frames: this.anims.generateFrameNumbers('knight_idle'), frameRate: 8, repeat: -1 });
@@ -83,19 +89,19 @@
       this.anims.create({ key: 'anim_parry', frames: this.anims.generateFrameNumbers('knight_parry'), frameRate: 10, repeat: 0 });
       this.anims.create({ key: 'anim_hit', frames: this.anims.generateFrameNumbers('knight_hit'), frameRate: 10, repeat: 0 });
 
-      // 騎士：直接將 Y 軸拉高到畫面的 38% 高度，並將 Anchor 設在頂端 (0.5, 0)，大幅補償圖檔留白
-      player = this.add.sprite(w * 0.25, h * 0.38, 'knight_idle').setScale(2.5);
-      player.setOrigin(0.5, 0);
+      // 騎士：放大 2.5 倍，錨點為中心 (0.5, 0.5)，位置強行拉高到離底部至少有 100px 以上安全距離
+      player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.5);
+      player.setOrigin(0.5, 0.5);
       player.play('anim_idle');
 
-      // Boss：保持在合適位置
-      boss = this.add.sprite(w * 0.75, h * 0.5, 'boss').setScale(0.65);
+      // Boss：對齊相同 Y 軸
+      boss = this.add.sprite(w * 0.75, groundY, 'boss').setScale(0.6);
       boss.setOrigin(0.5, 0.5);
 
       // 綠龍呼吸浮動
       this.tweens.add({
         targets: boss,
-        y: h * 0.5 - 15,
+        y: groundY - 15,
         duration: 1500,
         ease: 'Sine.easeInOut',
         yoyo: true,
@@ -103,7 +109,7 @@
       });
 
       // 招架提示光圈
-      bossWarning = this.add.circle(w * 0.75, h * 0.5 - 180, 25, 0xffff00).setVisible(false);
+      bossWarning = this.add.circle(w * 0.75, groundY - 150, 25, 0xffff00).setVisible(false);
 
       // UI 血條與動態文字
       bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
