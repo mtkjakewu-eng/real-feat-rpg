@@ -10,7 +10,7 @@
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0c0e; color: #fff; font-family: sans-serif; overflow: hidden; }
     
     #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
-    #canvas-container { width: 100%; height: 60vh; position: relative; background: #181c24; }
+    #canvas-container { width: 100%; height: 60vh; position: relative; background: #12161f; }
     
     .instruction-overlay {
       position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10;
@@ -62,58 +62,63 @@
       height: container.clientHeight,
       parent: 'canvas-container',
       physics: { default: 'arcade', arcade: { gravity: { y: 0 }, debug: false } },
-      scene: { preload: preload, create: create, update: update }
+      scene: { create: create, update: update }
     };
 
     const game = new Phaser.Game(config);
-    let player, boss, bossWarning;
+    let player, boss, bossWarning, slashEffect;
     let isParryWindow = false, isBossStunned = false;
     let bossHp = 1000, bossHpText, statusText;
-
-    function preload() {
-      // 載入開源免費 2D 角色精靈圖素材
-      this.load.spritesheet('hero', 'https://labs.phaser.io/assets/sprites/dude.png', { frameWidth: 32, frameHeight: 48 });
-      this.load.spritesheet('boss', 'https://labs.phaser.io/assets/sprites/mummy37x45.png', { frameWidth: 37, frameHeight: 45 });
-    }
 
     function create() {
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
 
-      // 建立地板背景線
+      // 1. 地板線條
       this.add.rectangle(w / 2, h * 0.75, w, 4, 0xff6600);
 
-      // 英雄動畫設定
-      this.anims.create({ key: 'hero-idle', frames: [ { key: 'hero', frame: 4 } ], frameRate: 20 });
-      this.anims.create({ key: 'hero-walk', frames: this.anims.generateFrameNumbers('hero', { start: 5, end: 8 }), frameRate: 10, repeat: -1 });
+      // 2. 使用純代碼生成勇者角色圖案 (藍色劍士)
+      const pGraphics = this.make.graphics({x: 0, y: 0, add: false});
+      pGraphics.fillStyle(0x00aaff, 1);
+      pGraphics.fillRect(10, 10, 30, 60); // 身體
+      pGraphics.fillStyle(0xffffff, 1);
+      pGraphics.fillRect(25, 20, 10, 10); // 眼鏡/眼睛
+      pGraphics.fillStyle(0xcccccc, 1);
+      pGraphics.fillRect(35, 35, 20, 5);  // 劍
+      pGraphics.generateTexture('playerTexture', 60, 80);
 
-      // Boss 動畫設定
-      this.anims.create({ key: 'boss-walk', frames: this.anims.generateFrameNumbers('boss', { start: 0, end: 17 }), frameRate: 12, repeat: -1 });
+      // 3. 使用純代碼生成 Boss 圖案 (紅色巨魔)
+      const bGraphics = this.make.graphics({x: 0, y: 0, add: false});
+      bGraphics.fillStyle(0xff3333, 1);
+      bGraphics.fillRect(10, 10, 60, 90); // 身體
+      bGraphics.fillStyle(0xffff00, 1);
+      bGraphics.fillRect(20, 25, 15, 10); // 雙眼
+      bGraphics.fillRect(45, 25, 15, 10);
+      bGraphics.generateTexture('bossTexture', 80, 110);
 
-      // 建立玩家角色 (放大 2.5 倍)
-      player = this.add.sprite(w * 0.3, h * 0.65, 'hero').setScale(2.5);
-      player.play('hero-idle');
+      // 4. 實體化角色與 Boss
+      player = this.add.sprite(w * 0.3, h * 0.62, 'playerTexture');
+      boss = this.add.sprite(w * 0.7, h * 0.6, 'bossTexture');
 
-      // 建立 Boss (放大 3 倍並染色強調)
-      boss = this.add.sprite(w * 0.7, h * 0.65, 'boss').setScale(3).setTint(0xff5555);
-      boss.play('boss-walk');
+      // 招架提示黃光
+      bossWarning = this.add.circle(w * 0.7, h * 0.35, 25, 0xffff00).setVisible(false);
 
-      // 招架黃光提示
-      bossWarning = this.add.circle(w * 0.7, h * 0.45, 30, 0xffff00).setVisible(false);
+      // 刀光特效
+      slashEffect = this.add.rectangle(0, 0, 80, 8, 0x00ffff).setVisible(false);
 
-      // UI
+      // UI 文字
       bossHpText = this.add.text(20, 20, 'BOSS HP: 1000 / 1000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
-      statusText = this.add.text(20, 55, '戰鬥開始！準備應戰...', { fontSize: '15px', fill: '#ffffff' });
+      statusText = this.add.text(20, 55, '戰鬥開始！請點擊按鈕測試...', { fontSize: '15px', fill: '#ffffff' });
 
-      // 綁定控制
-      bindBtn('btn-left', () => { player.x -= 30; player.play('hero-walk', true); statusText.setText('向左移動'); });
-      bindBtn('btn-right', () => { player.x += 30; player.play('hero-walk', true); statusText.setText('向右移動'); });
-      bindBtn('btn-attack', () => doAttack());
+      // 事件綁定 (確保點擊必有回應)
+      bindBtn('btn-left', () => { player.x -= 30; statusText.setText('向左移動'); });
+      bindBtn('btn-right', () => { player.x += 30; statusText.setText('向右移動'); });
+      bindBtn('btn-attack', () => doAttack(this));
       bindBtn('btn-parry', () => doParry());
       bindBtn('btn-dodge', () => doDodge());
-      bindBtn('btn-ss3', () => doSS3());
+      bindBtn('btn-ss3', () => doSS3(this));
 
-      // Boss AI 攻擊頻率
+      // Boss 攻擊計時器
       this.time.addEvent({ delay: 3500, callback: triggerBossAttack, callbackScope: this, loop: true });
     }
 
@@ -130,17 +135,17 @@
       if (isBossStunned || bossHp <= 0) return;
       statusText.setText('⚠️ BOSS 發動重擊！【快點擊招架！】');
       bossWarning.setVisible(true);
-      boss.setTint(0xffaa00); // 準備攻擊變色
+      boss.setTint(0xffaa00);
       isParryWindow = true;
 
       setTimeout(() => {
         if (isParryWindow && !isBossStunned) {
-          statusText.setText('💥 招架失敗！受到 Boss 重擊！');
+          statusText.setText('💥 招架太慢！受到 Boss 重擊！');
           player.setTint(0xff0000);
-          setTimeout(() => { player.clearTint(); player.play('hero-idle'); }, 300);
+          setTimeout(() => player.clearTint(), 250);
         }
         bossWarning.setVisible(false);
-        if (!isBossStunned) boss.setTint(0xff5555);
+        if (!isBossStunned) boss.clearTint();
         isParryWindow = false;
       }, 1000);
     }
@@ -150,43 +155,47 @@
         isParryWindow = false;
         isBossStunned = true;
         bossWarning.setVisible(false);
-        boss.setTint(0xffff00); // 金黃色硬直
+        boss.setTint(0xffff00); // 變金色表示硬直
         statusText.setText('⚡ PARRY 招架成功！BOSS 陷入硬直！【快按 SS3！】');
 
         setTimeout(() => {
           isBossStunned = false;
-          boss.setTint(0xff5555);
+          boss.clearTint();
           statusText.setText('狀態：Boss 恢復對峙...');
         }, 3000);
       } else {
-        statusText.setText('🛡️ 提早招架！沒抓到黃光時機！');
+        statusText.setText('🛡️ 提早招架！未抓到黃光時間點！');
       }
     }
 
-    function doAttack() {
-      if (Math.abs(player.x - boss.x) > 120) player.x = boss.x - 100;
+    function doAttack(scene) {
+      if (Math.abs(player.x - boss.x) > 100) player.x = boss.x - 80;
+      
       let dmg = isBossStunned ? 50 : 15;
       bossHp = Math.max(0, bossHp - dmg);
       bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
-      
-      // 攻擊視覺打擊效果
-      player.setTint(0x00ffff);
-      setTimeout(() => player.clearTint(), 150);
+
+      // 斬擊特效
+      slashEffect.setPosition(boss.x - 20, boss.y).setVisible(true).setRotation(-0.5);
+      scene.tweens.add({ targets: slashEffect, alpha: 0, duration: 150, onComplete: () => { slashEffect.setVisible(false).setAlpha(1); } });
+
       statusText.setText(`⚔️ 普通攻擊命中！造成 ${dmg} 傷害`);
     }
 
-    function doSS3() {
+    function doSS3(scene) {
       if (!isBossStunned) {
         statusText.setText('❌ SS3 失敗！必須在招架成功 Boss 硬直時發動！');
         return;
       }
-      player.x = boss.x - 80;
+      player.x = boss.x - 70;
       bossHp = Math.max(0, bossHp - 400);
       bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
 
-      // SS3 全螢幕閃光與連續暴擊視覺
-      player.setTint(0xffd700);
-      setTimeout(() => player.clearTint(), 400);
+      // 必殺連攜動畫特效
+      scene.cameras.main.shake(200, 0.01);
+      boss.setTint(0xff0000);
+      setTimeout(() => { if (isBossStunned) boss.setTint(0xffff00); }, 300);
+
       statusText.setText('🔥 SS3 必殺連攜！造成 400 巨額暴擊傷害！');
     }
 
