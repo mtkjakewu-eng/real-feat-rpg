@@ -64,7 +64,8 @@
     function preload() {
       this.load.image('boss', 'assets/boss.png');
 
-      const frameConfig = { frameWidth: 128, frameHeight: 64 };
+      // 若原圖每格寬高為 128x128，請依真實寬高調整；這裡設為標準方塊切片
+      const frameConfig = { frameWidth: 128, frameHeight: 128 };
       this.load.spritesheet('knight_idle', 'assets/knight_idle.png', frameConfig);
       this.load.spritesheet('knight_atk1', 'assets/knight_atk1.png', frameConfig);
       this.load.spritesheet('knight_atk2', 'assets/knight_atk2.png', frameConfig);
@@ -76,12 +77,8 @@
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
       
-      // 將地面中心抬高到 72% 的位置
-      const groundY = h * 0.72;
-
-      // 繪製一道實體灰褐色戰鬥平台 (讓角色有明確站立點)
-      this.add.rectangle(w / 2, groundY + 10, w, 20, 0x2a3242);
-      this.add.rectangle(w / 2, groundY, w, 4, 0x00aaff);
+      // 設定乾淨的站在 65% 高度位置，不加任何額外遮擋線條
+      const groundY = h * 0.65;
 
       // 註冊動作動畫
       this.anims.create({ key: 'anim_idle', frames: this.anims.generateFrameNumbers('knight_idle'), frameRate: 8, repeat: -1 });
@@ -90,19 +87,19 @@
       this.anims.create({ key: 'anim_parry', frames: this.anims.generateFrameNumbers('knight_parry'), frameRate: 10, repeat: 0 });
       this.anims.create({ key: 'anim_hit', frames: this.anims.generateFrameNumbers('knight_hit'), frameRate: 10, repeat: 0 });
 
-      // 建立騎士：抬高 Y 軸並適度放大比例 (setScale 2.8)
-      player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.8);
-      player.setOrigin(0.5, 0.85); // 精準修正圖檔底部的透明留白
+      // 騎士：放大比例、設定垂直置中點（Origin 0.5, 0.5），直接往上拉開
+      player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.5);
+      player.setOrigin(0.5, 0.5);
       player.play('anim_idle');
 
-      // 建立 Boss：對齊平台
+      // Boss：垂直置中站立
       boss = this.add.sprite(w * 0.75, groundY, 'boss').setScale(0.65);
-      boss.setOrigin(0.5, 0.88);
+      boss.setOrigin(0.5, 0.5);
 
       // 綠龍呼吸浮動
       this.tweens.add({
         targets: boss,
-        y: groundY - 12,
+        y: groundY - 15,
         duration: 1500,
         ease: 'Sine.easeInOut',
         yoyo: true,
@@ -110,7 +107,7 @@
       });
 
       // 招架提示光圈
-      bossWarning = this.add.circle(w * 0.75, groundY - 210, 25, 0xffff00).setVisible(false);
+      bossWarning = this.add.circle(w * 0.75, groundY - 180, 25, 0xffff00).setVisible(false);
 
       // UI 血條與動態文字
       bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
