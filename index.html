@@ -10,7 +10,7 @@
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0c0e; color: #fff; font-family: sans-serif; overflow: hidden; }
     
     #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
-    #canvas-container { width: 100%; height: 60vh; position: relative; background: #000; }
+    #canvas-container { width: 100%; height: 60vh; position: relative; background: #181c24; }
     
     .instruction-overlay {
       position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10;
@@ -32,10 +32,10 @@
   <div id="game-layout">
     <div id="canvas-container">
       <div class="instruction-overlay">
-        💡 <b>測試指引：</b><br>
-        1. 觀察 Boss 頭上出現<b>黃光</b><br>
-        2. 立刻點擊<b>【招架】</b>讓 Boss 硬直<br>
-        3. Boss 變金色時，點擊<b>【SS3】</b>發動暴擊！
+        💡 <b>招架技術流：</b><br>
+        1. 觀察 Boss 出現<b>黃光</b><br>
+        2. 點擊<b>【招架】</b>完美彈刀讓 Boss 硬直<br>
+        3. Boss 金色硬直時，點擊<b>【SS3】</b>發動連攜！
       </div>
     </div>
 
@@ -62,7 +62,7 @@
       height: container.clientHeight,
       parent: 'canvas-container',
       physics: { default: 'arcade', arcade: { gravity: { y: 0 }, debug: false } },
-      scene: { create: create, update: update }
+      scene: { preload: preload, create: create, update: update }
     };
 
     const game = new Phaser.Game(config);
@@ -70,32 +70,50 @@
     let isParryWindow = false, isBossStunned = false;
     let bossHp = 1000, bossHpText, statusText;
 
+    function preload() {
+      // 載入開源免費 2D 角色精靈圖素材
+      this.load.spritesheet('hero', 'https://labs.phaser.io/assets/sprites/dude.png', { frameWidth: 32, frameHeight: 48 });
+      this.load.spritesheet('boss', 'https://labs.phaser.io/assets/sprites/mummy37x45.png', { frameWidth: 37, frameHeight: 45 });
+    }
+
     function create() {
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
 
-      // 玩家角色 (藍色)
-      player = this.add.rectangle(w * 0.3, h * 0.6, 50, 90, 0x00aaff);
-      
-      // Boss (紅色)
-      boss = this.add.rectangle(w * 0.7, h * 0.6, 80, 110, 0xff3333);
+      // 建立地板背景線
+      this.add.rectangle(w / 2, h * 0.75, w, 4, 0xff6600);
 
-      // 招架提示黃光
-      bossWarning = this.add.circle(w * 0.7, h * 0.35, 25, 0xffff00).setVisible(false);
+      // 英雄動畫設定
+      this.anims.create({ key: 'hero-idle', frames: [ { key: 'hero', frame: 4 } ], frameRate: 20 });
+      this.anims.create({ key: 'hero-walk', frames: this.anims.generateFrameNumbers('hero', { start: 5, end: 8 }), frameRate: 10, repeat: -1 });
 
-      // 文字 UI
+      // Boss 動畫設定
+      this.anims.create({ key: 'boss-walk', frames: this.anims.generateFrameNumbers('boss', { start: 0, end: 17 }), frameRate: 12, repeat: -1 });
+
+      // 建立玩家角色 (放大 2.5 倍)
+      player = this.add.sprite(w * 0.3, h * 0.65, 'hero').setScale(2.5);
+      player.play('hero-idle');
+
+      // 建立 Boss (放大 3 倍並染色強調)
+      boss = this.add.sprite(w * 0.7, h * 0.65, 'boss').setScale(3).setTint(0xff5555);
+      boss.play('boss-walk');
+
+      // 招架黃光提示
+      bossWarning = this.add.circle(w * 0.7, h * 0.45, 30, 0xffff00).setVisible(false);
+
+      // UI
       bossHpText = this.add.text(20, 20, 'BOSS HP: 1000 / 1000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
-      statusText = this.add.text(20, 55, '狀態：點擊按鈕測試操作...', { fontSize: '15px', fill: '#ffffff' });
+      statusText = this.add.text(20, 55, '戰鬥開始！準備應戰...', { fontSize: '15px', fill: '#ffffff' });
 
-      // 相容電腦滑鼠與手機點擊的事件綁定
-      bindBtn('btn-left', () => { player.x -= 30; statusText.setText('向左移動'); });
-      bindBtn('btn-right', () => { player.x += 30; statusText.setText('向右移動'); });
+      // 綁定控制
+      bindBtn('btn-left', () => { player.x -= 30; player.play('hero-walk', true); statusText.setText('向左移動'); });
+      bindBtn('btn-right', () => { player.x += 30; player.play('hero-walk', true); statusText.setText('向右移動'); });
       bindBtn('btn-attack', () => doAttack());
       bindBtn('btn-parry', () => doParry());
       bindBtn('btn-dodge', () => doDodge());
       bindBtn('btn-ss3', () => doSS3());
 
-      // 自動觸發 Boss 攻擊迴圈 (每 3.5 秒一次)
+      // Boss AI 攻擊頻率
       this.time.addEvent({ delay: 3500, callback: triggerBossAttack, callbackScope: this, loop: true });
     }
 
@@ -105,26 +123,24 @@
 
     function bindBtn(id, action) {
       const el = document.getElementById(id);
-      // 使用 pointerdown 相容滑鼠點擊與手機觸控
-      el.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        action();
-      });
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); action(); });
     }
 
     function triggerBossAttack() {
       if (isBossStunned || bossHp <= 0) return;
       statusText.setText('⚠️ BOSS 發動重擊！【快點擊招架！】');
       bossWarning.setVisible(true);
+      boss.setTint(0xffaa00); // 準備攻擊變色
       isParryWindow = true;
 
       setTimeout(() => {
         if (isParryWindow && !isBossStunned) {
-          statusText.setText('💥 招架太慢！受到 Boss 重創！');
-          player.fillColor = 0xff0000;
-          setTimeout(() => player.fillColor = 0x00aaff, 250);
+          statusText.setText('💥 招架失敗！受到 Boss 重擊！');
+          player.setTint(0xff0000);
+          setTimeout(() => { player.clearTint(); player.play('hero-idle'); }, 300);
         }
         bossWarning.setVisible(false);
+        if (!isBossStunned) boss.setTint(0xff5555);
         isParryWindow = false;
       }, 1000);
     }
@@ -134,12 +150,12 @@
         isParryWindow = false;
         isBossStunned = true;
         bossWarning.setVisible(false);
-        boss.fillColor = 0xffd700; // Boss 變金黃色硬直
-        statusText.setText('⚡ PARRY 成功！BOSS 大硬直！【快按 SS3！】');
+        boss.setTint(0xffff00); // 金黃色硬直
+        statusText.setText('⚡ PARRY 招架成功！BOSS 陷入硬直！【快按 SS3！】');
 
         setTimeout(() => {
           isBossStunned = false;
-          boss.fillColor = 0xff3333;
+          boss.setTint(0xff5555);
           statusText.setText('狀態：Boss 恢復對峙...');
         }, 3000);
       } else {
@@ -148,12 +164,14 @@
     }
 
     function doAttack() {
-      // 自動靠攏防呆
       if (Math.abs(player.x - boss.x) > 120) player.x = boss.x - 100;
-      
       let dmg = isBossStunned ? 50 : 15;
       bossHp = Math.max(0, bossHp - dmg);
       bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+      
+      // 攻擊視覺打擊效果
+      player.setTint(0x00ffff);
+      setTimeout(() => player.clearTint(), 150);
       statusText.setText(`⚔️ 普通攻擊命中！造成 ${dmg} 傷害`);
     }
 
@@ -165,6 +183,10 @@
       player.x = boss.x - 80;
       bossHp = Math.max(0, bossHp - 400);
       bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+
+      // SS3 全螢幕閃光與連續暴擊視覺
+      player.setTint(0xffd700);
+      setTimeout(() => player.clearTint(), 400);
       statusText.setText('🔥 SS3 必殺連攜！造成 400 巨額暴擊傷害！');
     }
 
