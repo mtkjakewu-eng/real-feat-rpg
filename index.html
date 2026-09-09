@@ -9,9 +9,9 @@
     * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0c0e; color: #fff; font-family: sans-serif; overflow: hidden; }
     #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
-    #canvas-container { width: 100%; height: 60vh; position: relative; background: #12161f; }
+    #canvas-container { width: 100%; height: 65vh; position: relative; background: #0e121a; }
     .instruction-overlay { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10; }
-    .control-panel { height: 40vh; background: #141820; border-top: 2px solid #ff6600; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
+    .control-panel { height: 35vh; background: #141820; border-top: 2px solid #ff6600; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
     .dpad-group, .action-group { display: flex; gap: 10px; align-items: center; }
     .btn { width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ff6600; background: #221810; color: #fff; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline: none; }
     .btn:active { background: #ff6600 !important; transform: scale(0.9); }
@@ -64,7 +64,6 @@
     function preload() {
       this.load.image('boss', 'assets/boss.png');
 
-      // 1. 將所有動作圖片全部以 Spritesheet 格式載入 (假設單格寬高 128x64)
       const frameConfig = { frameWidth: 128, frameHeight: 64 };
       this.load.spritesheet('knight_idle', 'assets/knight_idle.png', frameConfig);
       this.load.spritesheet('knight_atk1', 'assets/knight_atk1.png', frameConfig);
@@ -76,31 +75,30 @@
     function create() {
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
-      const groundY = h * 0.75; // 地板線 Y 軸位置
+      
+      // 腳踏地面的 Y 軸位置（調整至畫面 85% 高度，留出踩地空間）
+      const groundY = h * 0.85;
 
-      // 地板線
-      this.add.rectangle(w / 2, groundY, w, 4, 0xff6600);
-
-      // 2. 註冊各動作的連貫動畫
+      // 註冊動作動畫
       this.anims.create({ key: 'anim_idle', frames: this.anims.generateFrameNumbers('knight_idle'), frameRate: 8, repeat: -1 });
       this.anims.create({ key: 'anim_atk1', frames: this.anims.generateFrameNumbers('knight_atk1'), frameRate: 12, repeat: 0 });
       this.anims.create({ key: 'anim_atk2', frames: this.anims.generateFrameNumbers('knight_atk2'), frameRate: 12, repeat: 0 });
       this.anims.create({ key: 'anim_parry', frames: this.anims.generateFrameNumbers('knight_parry'), frameRate: 10, repeat: 0 });
       this.anims.create({ key: 'anim_hit', frames: this.anims.generateFrameNumbers('knight_hit'), frameRate: 10, repeat: 0 });
 
-      // 3. 建立角色並修復 Y 軸腳踏點 (將 Anchor 設在底部 center 0.5, bottom 1.0)
+      // 建立騎士並貼齊地面
       player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.2);
-      player.setOrigin(0.5, 1.0); // 設定腳底對齊地板線
+      player.setOrigin(0.5, 1.0);
       player.play('anim_idle');
 
-      // 建立 Boss (綠龍) 且同樣對齊腳底
+      // 建立 Boss 並貼齊地面
       boss = this.add.sprite(w * 0.75, groundY, 'boss').setScale(0.6);
-      boss.setOrigin(0.5, 0.9);
+      boss.setOrigin(0.5, 0.95);
 
-      // 綠龍呼吸動畫
+      // 綠龍呼吸浮動
       this.tweens.add({
         targets: boss,
-        y: groundY - 10,
+        y: groundY - 12,
         duration: 1500,
         ease: 'Sine.easeInOut',
         yoyo: true,
@@ -108,9 +106,9 @@
       });
 
       // 招架提示光圈
-      bossWarning = this.add.circle(w * 0.75, groundY - 180, 30, 0xffff00).setVisible(false);
+      bossWarning = this.add.circle(w * 0.75, groundY - 200, 25, 0xffff00).setVisible(false);
 
-      // 血條與文字提示
+      // UI 血條與動態文字
       bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
       statusText = this.add.text(20, 55, '戰鬥開始！請點擊按鈕發動攻擊...', { fontSize: '15px', fill: '#ffffff' });
 
@@ -122,7 +120,7 @@
       bindBtn('btn-dodge', () => doDodge(this));
       bindBtn('btn-ss3', () => doSS3(this));
 
-      // 監聽動畫播放完畢，自動切回待機
+      // 動畫播放完畢自動切回待機
       player.on('animationcomplete', (anim) => {
         if (anim.key !== 'anim_idle') {
           player.play('anim_idle');
@@ -219,7 +217,7 @@
     function doDodge(scene) {
       scene.tweens.add({ targets: player, x: player.x - 100, duration: 150 });
       statusText.setText('🌀 快速後撤閃避！');
-      }
+    }
   </script>
 </body>
 </html>
