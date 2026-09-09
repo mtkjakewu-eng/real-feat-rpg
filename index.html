@@ -11,7 +11,8 @@
     #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
     #canvas-container { width: 100%; height: 65vh; position: relative; background: #0e121a; }
     .instruction-overlay { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10; }
-    .control-panel { height: 35vh; background: #141820; border-top: 2px solid #ff6600; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
+    /* 移除 border-top，徹底掃除橘線 */
+    .control-panel { height: 35vh; background: #141820; border-top: none; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
     .dpad-group, .action-group { display: flex; gap: 10px; align-items: center; }
     .btn { width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ff6600; background: #221810; color: #fff; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline: none; }
     .btn:active { background: #ff6600 !important; transform: scale(0.9); }
@@ -64,8 +65,8 @@
     function preload() {
       this.load.image('boss', 'assets/boss.png');
 
-      // 若原圖每格寬高為 128x128，請依真實寬高調整；這裡設為標準方塊切片
-      const frameConfig = { frameWidth: 128, frameHeight: 128 };
+      // 正確的圖檔尺寸切割
+      const frameConfig = { frameWidth: 128, frameHeight: 64 };
       this.load.spritesheet('knight_idle', 'assets/knight_idle.png', frameConfig);
       this.load.spritesheet('knight_atk1', 'assets/knight_atk1.png', frameConfig);
       this.load.spritesheet('knight_atk2', 'assets/knight_atk2.png', frameConfig);
@@ -77,8 +78,8 @@
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
       
-      // 設定乾淨的站在 65% 高度位置，不加任何額外遮擋線條
-      const groundY = h * 0.65;
+      // 放置在 Canvas 高度的 55% 位置（安全不碰底）
+      const centerY = h * 0.55;
 
       // 註冊動作動畫
       this.anims.create({ key: 'anim_idle', frames: this.anims.generateFrameNumbers('knight_idle'), frameRate: 8, repeat: -1 });
@@ -87,19 +88,19 @@
       this.anims.create({ key: 'anim_parry', frames: this.anims.generateFrameNumbers('knight_parry'), frameRate: 10, repeat: 0 });
       this.anims.create({ key: 'anim_hit', frames: this.anims.generateFrameNumbers('knight_hit'), frameRate: 10, repeat: 0 });
 
-      // 騎士：放大比例、設定垂直置中點（Origin 0.5, 0.5），直接往上拉開
-      player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.5);
+      // 騎士：居中 (0.5, 0.5) 並適度放大 (2.5)
+      player = this.add.sprite(w * 0.25, centerY, 'knight_idle').setScale(2.5);
       player.setOrigin(0.5, 0.5);
       player.play('anim_idle');
 
-      // Boss：垂直置中站立
-      boss = this.add.sprite(w * 0.75, groundY, 'boss').setScale(0.65);
+      // Boss：對齊高度
+      boss = this.add.sprite(w * 0.75, centerY, 'boss').setScale(0.65);
       boss.setOrigin(0.5, 0.5);
 
       // 綠龍呼吸浮動
       this.tweens.add({
         targets: boss,
-        y: groundY - 15,
+        y: centerY - 15,
         duration: 1500,
         ease: 'Sine.easeInOut',
         yoyo: true,
@@ -107,7 +108,7 @@
       });
 
       // 招架提示光圈
-      bossWarning = this.add.circle(w * 0.75, groundY - 180, 25, 0xffff00).setVisible(false);
+      bossWarning = this.add.circle(w * 0.75, centerY - 180, 25, 0xffff00).setVisible(false);
 
       // UI 血條與動態文字
       bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
