@@ -2,262 +2,217 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Real-Feat RPG</title>
-  <!-- PWA 必備宣告 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Real-Feat RPG: Action Demo</title>
   <link rel="manifest" href="manifest.json">
+  <!-- 引入免費開源 Phaser 3 遊戲引擎 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
-    :root {
-      --bg-color: #0d0f12;
-      --card-bg: #181c24;
-      --primary: #ff6600;
-      --text: #ffffff;
-      --text-sub: #a0a6b1;
-      --accent: #ffd700;
-    }
     body {
       margin: 0;
       padding: 0;
-      background-color: var(--bg-color);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0d0f12;
+      color: #fff;
+      font-family: sans-serif;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #game-container {
+      width: 100vw;
+      height: 60vh;
       display: flex;
       justify-content: center;
-    }
-    .app-container {
-      width: 100%;
-      max-width: 480px;
-      min-height: 100vh;
-      padding: 16px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding-bottom: 40px;
-    }
-    .character-card {
-      background: linear-gradient(135deg, #251810 0%, var(--card-bg) 100%);
-      border: 1px solid #ff660044;
-      border-radius: 16px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
       align-items: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
-    .avatar-frame {
-      width: 110px;
-      height: 110px;
+    /* 虛擬操作按鍵區 */
+    .controls-container {
+      height: 40vh;
+      background: #181c24;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 10px;
+      box-sizing: border-box;
+      border-top: 2px solid #ff6600;
+    }
+    .d-pad, .action-pad {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+    .btn {
+      width: 65px;
+      height: 65px;
       border-radius: 50%;
-      border: 3px solid var(--primary);
-      overflow: hidden;
-      box-shadow: 0 0 15px rgba(255, 102, 0, 0.4);
-      margin-bottom: 8px;
+      border: 2px solid #ff6600;
+      background: #251810;
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
     }
-    .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
-    .char-title { font-size: 0.9rem; color: var(--accent); margin-bottom: 2px; }
-    .char-name { font-size: 1.3rem; font-weight: bold; margin-bottom: 12px; }
-    .progress-section { width: 100%; }
-    .progress-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-sub); margin-bottom: 6px; }
-    .progress-bar-bg { width: 100%; height: 12px; background-color: #0a0c0e; border-radius: 6px; overflow: hidden; border: 1px solid #ffffff11; }
-    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #ff6600, #ff9900); width: 0%; transition: width 0.3s; }
-    
-    .action-card { background-color: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid #ff660022; }
-    .input-group { display: flex; gap: 8px; margin-top: 8px; }
-    select, input, button {
-      background-color: #0d0f12; border: 1px solid #ff660044; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.9rem;
-    }
-    input { flex: 1; }
-    button { background: var(--primary); color: #fff; font-weight: bold; border: none; cursor: pointer; }
-    button:hover { background: #e65c00; }
-
-    .section-title { font-size: 1.1rem; font-weight: bold; border-left: 4px solid var(--primary); padding-left: 8px; margin-top: 8px; }
-    .card-grid { display: flex; flex-direction: column; gap: 10px; }
-    .item-card { background-color: var(--card-bg); border-radius: 12px; padding: 12px; display: flex; gap: 12px; align-items: center; border: 1px solid #ffffff0a; }
-    .item-img { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; }
-    .item-info { display: flex; flex-direction: column; gap: 2px; }
-    .item-name { font-size: 0.95rem; font-weight: bold; }
-    .item-desc { font-size: 0.8rem; color: var(--text-sub); }
-    
-    .level-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 6px; }
-    .level-table th, .level-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ffffff11; }
-    .level-table th { color: var(--primary); }
-    .active-row { background-color: #ff660022; font-weight: bold; color: var(--accent); }
+    .btn:active { background: #ff6600; }
+    .btn-ss3 { border-color: #ffd700; background: #3d3000; color: #ffd700; }
   </style>
 </head>
 <body>
 
-  <div class="app-container">
-    
-    <!-- 角色卡片 -->
-    <div class="character-card">
-      <div class="avatar-frame">
-        <img src="assassin.png" alt="職業角圖">
-      </div>
-      <div class="char-title" id="char-title">Lv.1 見習冒險者</div>
-      <div class="char-name">運動冒險者</div>
-      
-      <div class="progress-section">
-        <div class="progress-labels">
-          <span id="exp-text">0 / 300 EXP</span>
-          <span id="exp-percent">0%</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" id="exp-bar"></div>
-        </div>
-      </div>
+  <div id="game-container"></div>
+
+  <!-- 手機實體按鍵（測試手感專用） -->
+  <div class="controls-container">
+    <div class="d-pad">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-right">▶</div>
     </div>
-
-    <!-- 上傳截圖與驗證 -->
-    <div class="action-card" style="background: #20140e; border: 1px solid #fc4c02;">
-      <div style="font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
-        <span style="color: #fc4c02;">📷</span> 運動戰報數據驗證 (分級智審)
-      </div>
-      <p style="font-size: 0.8rem; color: #a0a6b1; margin: 6px 0 12px 0;">
-        上傳 Garmin / Strava 截圖，系統將根據你的等級啟動對應防禦驗證！
-      </p>
-
-      <input type="file" id="workout-img" accept="image/*" style="display: none;" onchange="processImage(event)">
-      <button onclick="document.getElementById('workout-img').click()" style="width: 100%; background: #fc4c02; color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none;">
-        📤 上傳 Garmin / Strava 截圖
-      </button>
+    <div class="action-pad">
+      <div class="btn" id="btn-dodge" style="border-color:#00ffff;">閃避</div>
+      <div class="btn" id="btn-parry" style="border-color:#ffd700;">招架</div>
+      <div class="btn" id="btn-attack">攻擊</div>
+      <div class="btn btn-ss3" id="btn-ss3">SS3</div>
     </div>
-
-    <!-- Boss 討伐戰 -->
-    <div class="section-title">Boss 討伐戰</div>
-    <div class="item-card">
-      <img src="boss.png" class="item-img" alt="Boss圖">
-      <div class="item-info">
-        <div class="item-name">岩石巨魔 Rock Golem</div>
-        <div class="item-desc" id="boss-hp">血量: 10,000 / 10,000 HP</div>
-        <div class="item-desc" style="color: var(--primary);">消耗訓練 EXP 對 Boss 造成等量傷害！</div>
-      </div>
-    </div>
-
-    <!-- 偉業成就 -->
-    <div class="section-title">偉業成就 (Real-Feat)</div>
-    <div class="card-grid">
-      <div class="item-card">
-        <img src="badge.png" class="item-img" alt="偉業勳章">
-        <div class="item-info">
-          <div class="item-name">半馬突破勳章</div>
-          <div class="item-desc">解鎖條件：完成首次 21km 半程馬拉松挑戰</div>
-          <button onclick="requestRealFeat()" style="margin-top: 4px; padding: 4px 8px; font-size: 0.75rem;">申请人工審核解鎖</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 等級晉升表 -->
-    <div class="section-title">等級晉升之路 (Excel 數據)</div>
-    <table class="level-table">
-      <thead>
-        <tr><th>等級</th><th>稱號</th><th>累積 EXP 門檻</th></tr>
-      </thead>
-      <tbody id="level-table-body"></tbody>
-    </table>
-
   </div>
 
   <script>
-    // PWA Service Worker 啟動指令
+    // PWA Service Worker 註冊
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
 
-    const levelRules = [
-      { lvl: 1, title: "見習冒險者", exp: 0 },
-      { lvl: 2, title: "初出茅廬者", exp: 300 },
-      { lvl: 3, title: "風馳探索者", exp: 800 },
-      { lvl: 4, title: "破風行者", exp: 1500 },
-      { lvl: 5, title: "鋼鐵耐力家", exp: 2500 },
-      { lvl: 6, title: "疾風獵手", exp: 4000 },
-      { lvl: 7, title: "極限征服者", exp: 6000 },
-      { lvl: 8, title: "遠征領主", exp: 8500 },
-      { lvl: 9, title: "神話疾行者", exp: 12000 },
-      { lvl: 10, title: "傳奇冒險家", exp: 16000 }
-    ];
+    // Phaser 3 遊戲主配置
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 450,
+      parent: 'game-container',
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 1000 }, debug: false }
+      },
+      scene: { preload: preload, create: create, update: update }
+    };
 
-    let currentExp = 0;
-    let currentLvl = 1;
-    const maxBossHp = 10000;
+    const game = new Phaser.Game(config);
 
-    function renderTable() {
-      const tbody = document.getElementById('level-table-body');
-      tbody.innerHTML = '';
-      levelRules.forEach(r => {
-        const tr = document.createElement('tr');
-        if(r.lvl === currentLvl) tr.className = 'active-row';
-        tr.innerHTML = `<td>Lv.${r.lvl}</td><td>${r.title}</td><td>${r.exp} EXP</td>`;
-        tbody.appendChild(tr);
-      });
+    let player, boss, floor;
+    let bossWarningCircle;
+    let isParryWindow = false; // 是否處於可招架時間
+    let isBossStunned = false; // Boss 是否處於彈刀硬直
+    let bossHp = 1000;
+    let bossHpText, stateText;
+
+    function preload() {}
+
+    function create() {
+      // 建立地板
+      floor = this.add.rectangle(400, 420, 800, 40, 0x333333);
+      this.physics.add.existing(floor, true);
+
+      // 建立玩家 (藍色方塊代表勇者)
+      player = this.add.rectangle(200, 300, 40, 70, 0x00aaff);
+      this.physics.add.existing(player);
+      player.body.setCollideWorldBounds(true);
+      this.physics.add.collider(player, floor);
+
+      // 建立 Boss (紅色方塊代表巨魔)
+      boss = this.add.rectangle(600, 300, 70, 110, 0xff3333);
+      this.physics.add.existing(boss);
+      boss.body.setCollideWorldBounds(true);
+      this.physics.add.collider(boss, floor);
+
+      // Boss 招架黃光提示圈
+      bossWarningCircle = this.add.circle(600, 230, 25, 0xffff00).setVisible(false);
+
+      // UI 文字
+      bossHpText = this.add.text(16, 16, 'BOSS HP: 1000 / 1000', { fontSize: '18px', fill: '#ff6600' });
+      stateText = this.add.text(16, 45, '戰鬥狀態: 觀察 Boss 招式...', { fontSize: '14px', fill: '#fff' });
+
+      // 綁定手持虛擬按鍵
+      document.getElementById('btn-attack').addEventListener('touchstart', () => playerAttack());
+      document.getElementById('btn-parry').addEventListener('touchstart', () => playerParry());
+      document.getElementById('btn-dodge').addEventListener('touchstart', () => playerDodge());
+      document.getElementById('btn-ss3').addEventListener('touchstart', () => playerSS3());
+
+      // 啟動 Boss 攻擊 AI 迴圈
+      this.time.addEvent({ delay: 3500, callback: triggerBossAttack, callbackScope: this, loop: true });
     }
 
-    function updateGame() {
-      let currentLvlObj = levelRules[0];
-      let nextLvlObj = levelRules[1];
+    function update() {
+      if (bossWarningCircle) {
+        bossWarningCircle.x = boss.x;
+      }
+    }
 
-      for (let i = levelRules.length - 1; i >= 0; i--) {
-        if (currentExp >= levelRules[i].exp) {
-          currentLvlObj = levelRules[i];
-          nextLvlObj = levelRules[i + 1] || levelRules[i];
-          break;
+    // Boss 發動可招架攻擊（黃光提示）
+    function triggerBossAttack() {
+      if (isBossStunned || bossHp <= 0) return;
+
+      stateText.setText('⚠️ BOSS 發動重擊！[抓準黃光瞬間點擊招架！]');
+      bossWarningCircle.setVisible(true);
+      isParryWindow = true;
+
+      // 1 秒後若未被招架，Boss 揮刀
+      setTimeout(() => {
+        if (isParryWindow && !isBossStunned) {
+          stateText.setText('💥 招架失敗！受到 Boss 重創！');
+          player.fillColor = 0xff0000;
+          setTimeout(() => player.fillColor = 0x00aaff, 300);
         }
-      }
+        bossWarningCircle.setVisible(false);
+        isParryWindow = false;
+      }, 800);
+    }
 
-      currentLvl = currentLvlObj.lvl;
-      document.getElementById('char-title').innerText = `Lv.${currentLvlObj.lvl} ${currentLvlObj.title}`;
-      
-      let pct = 100;
-      if (nextLvlObj !== currentLvlObj) {
-        const reqExp = nextLvlObj.exp - currentLvlObj.exp;
-        const curExpInLvl = currentExp - currentLvlObj.exp;
-        pct = Math.min(100, Math.floor((curExpInLvl / reqExp) * 100));
-        document.getElementById('exp-text').innerText = `${currentExp} / ${nextLvlObj.exp} EXP`;
+    // 玩家動作：招架 (Parry)
+    function playerParry() {
+      if (isParryWindow) {
+        // 招架成功！SAO:MD 核心體驗！
+        isParryWindow = false;
+        isBossStunned = true;
+        bossWarningCircle.setVisible(false);
+
+        boss.fillColor = 0xffd700; // Boss 變成金黃色硬直狀態
+        stateText.setText('⚡ PARRY 招架成功！BOSS 陷入大硬直！[快按 SS3 發動連攜！]');
+
+        // Boss 硬直 3 秒
+        setTimeout(() => {
+          isBossStunned = false;
+          boss.fillColor = 0xff3333;
+          stateText.setText('戰鬥狀態: Boss 恢復姿態...');
+        }, 3000);
       } else {
-        document.getElementById('exp-text').innerText = `${currentExp} EXP (最高級)`;
+        stateText.setText('🛡️ 空招架！未抓準時機！');
       }
-
-      document.getElementById('exp-percent').innerText = `${pct}%`;
-      document.getElementById('exp-bar').style.width = `${pct}%`;
-
-      const bossHp = Math.max(0, maxBossHp - currentExp);
-      document.getElementById('boss-hp').innerText = `血量: ${bossHp.toLocaleString()} / ${maxBossHp.toLocaleString()} HP`;
-
-      renderTable();
     }
 
-    function processImage(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const sport = prompt("【圖片解析完成】請確認項目：\n1. 跑步 (1km=100EXP)\n2. 單車 (1km=30EXP)\n3. 游泳 (1m=0.5EXP)", "1");
-      const km = parseFloat(prompt("請確認圖片上記錄的真實公里/公尺數：", "5"));
-
-      if (isNaN(km) || km <= 0) return alert("驗證失敗：無效的數據！");
-
-      // 分級審核提示邏輯
-      if (currentLvl <= 3) {
-        alert("🟢 [Lv.1~3 初階驗證] 寬鬆自動核准戰報！");
-      } else if (currentLvl <= 7) {
-        alert("🟡 [Lv.4~7 中階智審] 比對時間戳記與 OCR 文字中... 智審核准！");
-      } else {
-        alert("🔴 [Lv.8+ 高階防禦] 觸發配速曲線抽查與心率核對... 驗證通過！");
+    // 玩家動作：普通攻擊
+    function playerAttack() {
+      if (Math.abs(player.x - boss.x) < 100) {
+        let dmg = isBossStunned ? 50 : 15; // 硬直狀態下傷害加倍
+        bossHp = Math.max(0, bossHp - dmg);
+        bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+        stateText.setText(`⚔️ 命中 Boss！造成 ${dmg} 點傷害 ${isBossStunned ? '(暴擊!)' : ''}`);
       }
-
-      let gainedExp = 0;
-      if (sport === "1") gainedExp = km * 100;
-      else if (sport === "2") gainedExp = km * 30;
-      else if (sport === "3") gainedExp = km * 0.5;
-
-      currentExp += gainedExp;
-      updateGame();
     }
 
-    function requestRealFeat() {
-      alert("🛡️ 【偉業核准請求已送出】\n系統已將您的 21km 紀錄傳送至 Discord 管理員審核通道，請耐心等待發放勳章！");
+    // 玩家動作：SS3 切換連攜必殺技
+    function playerSS3() {
+      if (!isBossStunned) {
+        return alert('SS3 必殺技需在【招架成功 Boss 硬直】時發動才能造成全額連攜暴擊！');
+      }
+      bossHp = Math.max(0, bossHp - 350);
+      bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+      stateText.setText('🔥 必殺連攜！SS3 釋放！造成 350 點巨額暴擊傷害！');
     }
 
-    updateGame();
+    // 玩家動作：閃避
+    function playerDodge() {
+      player.x -= 80;
+      stateText.setText('🌀 完美後撤閃避！');
+    }
   </script>
 </body>
 </html>
