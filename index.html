@@ -3,215 +3,174 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Real-Feat RPG: Action Demo</title>
-  <link rel="manifest" href="manifest.json">
-  <!-- 引入免費開源 Phaser 3 遊戲引擎 -->
+  <title>Real-Feat RPG: SAO Action Demo</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #0d0f12;
-      color: #fff;
-      font-family: sans-serif;
-      overflow: hidden;
-      touch-action: none;
+    * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0c0e; color: #fff; font-family: sans-serif; overflow: hidden; }
+    
+    #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
+    #canvas-container { width: 100%; height: 60vh; position: relative; background: #000; }
+    
+    .instruction-overlay {
+      position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10;
     }
-    #game-container {
-      width: 100vw;
-      height: 60vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    /* 虛擬操作按鍵區 */
-    .controls-container {
-      height: 40vh;
-      background: #181c24;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      padding: 10px;
-      box-sizing: border-box;
-      border-top: 2px solid #ff6600;
-    }
-    .d-pad, .action-pad {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
-    }
+
+    .control-panel { height: 40vh; background: #141820; border-top: 2px solid #ff6600; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
+    .dpad-group, .action-group { display: flex; gap: 10px; align-items: center; }
+    
     .btn {
-      width: 65px;
-      height: 65px;
-      border-radius: 50%;
-      border: 2px solid #ff6600;
-      background: #251810;
-      color: #fff;
-      font-weight: bold;
-      font-size: 0.85rem;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      user-select: none;
+      width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ff6600; background: #221810; color: #fff; font-weight: bold; font-size: 0.9rem;
+      display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline: none;
     }
-    .btn:active { background: #ff6600; }
-    .btn-ss3 { border-color: #ffd700; background: #3d3000; color: #ffd700; }
+    .btn:active { background: #ff6600 !important; transform: scale(0.9); }
+    .btn-ss3 { border-color: #ffd700; background: #3a3000; color: #ffd700; font-size: 1rem; }
   </style>
 </head>
 <body>
 
-  <div id="game-container"></div>
-
-  <!-- 手機實體按鍵（測試手感專用） -->
-  <div class="controls-container">
-    <div class="d-pad">
-      <div class="btn" id="btn-left">◀</div>
-      <div class="btn" id="btn-right">▶</div>
+  <div id="game-layout">
+    <div id="canvas-container">
+      <div class="instruction-overlay">
+        💡 <b>測試指引：</b><br>
+        1. 觀察 Boss 頭上出現<b>黃光</b><br>
+        2. 立刻點擊<b>【招架】</b>讓 Boss 硬直<br>
+        3. Boss 變金色時，點擊<b>【SS3】</b>發動暴擊！
+      </div>
     </div>
-    <div class="action-pad">
-      <div class="btn" id="btn-dodge" style="border-color:#00ffff;">閃避</div>
-      <div class="btn" id="btn-parry" style="border-color:#ffd700;">招架</div>
-      <div class="btn" id="btn-attack">攻擊</div>
-      <div class="btn btn-ss3" id="btn-ss3">SS3</div>
+
+    <div class="control-panel">
+      <div class="dpad-group">
+        <button class="btn" id="btn-left">◀</button>
+        <button class="btn" id="btn-right">▶</button>
+      </div>
+      <div class="action-group">
+        <button class="btn" id="btn-dodge" style="border-color:#00ffff;">閃避</button>
+        <button class="btn" id="btn-parry" style="border-color:#ffd700;">招架</button>
+        <button class="btn" id="btn-attack">攻擊</button>
+        <button class="btn btn-ss3" id="btn-ss3">SS3</button>
+      </div>
     </div>
   </div>
 
   <script>
-    // PWA Service Worker 註冊
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
-    }
+    const container = document.getElementById('canvas-container');
 
-    // Phaser 3 遊戲主配置
     const config = {
       type: Phaser.AUTO,
-      width: 800,
-      height: 450,
-      parent: 'game-container',
-      physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 1000 }, debug: false }
-      },
-      scene: { preload: preload, create: create, update: update }
+      width: container.clientWidth,
+      height: container.clientHeight,
+      parent: 'canvas-container',
+      physics: { default: 'arcade', arcade: { gravity: { y: 0 }, debug: false } },
+      scene: { create: create, update: update }
     };
 
     const game = new Phaser.Game(config);
-
-    let player, boss, floor;
-    let bossWarningCircle;
-    let isParryWindow = false; // 是否處於可招架時間
-    let isBossStunned = false; // Boss 是否處於彈刀硬直
-    let bossHp = 1000;
-    let bossHpText, stateText;
-
-    function preload() {}
+    let player, boss, bossWarning;
+    let isParryWindow = false, isBossStunned = false;
+    let bossHp = 1000, bossHpText, statusText;
 
     function create() {
-      // 建立地板
-      floor = this.add.rectangle(400, 420, 800, 40, 0x333333);
-      this.physics.add.existing(floor, true);
+      const w = this.cameras.main.width;
+      const h = this.cameras.main.height;
 
-      // 建立玩家 (藍色方塊代表勇者)
-      player = this.add.rectangle(200, 300, 40, 70, 0x00aaff);
-      this.physics.add.existing(player);
-      player.body.setCollideWorldBounds(true);
-      this.physics.add.collider(player, floor);
+      // 玩家角色 (藍色)
+      player = this.add.rectangle(w * 0.3, h * 0.6, 50, 90, 0x00aaff);
+      
+      // Boss (紅色)
+      boss = this.add.rectangle(w * 0.7, h * 0.6, 80, 110, 0xff3333);
 
-      // 建立 Boss (紅色方塊代表巨魔)
-      boss = this.add.rectangle(600, 300, 70, 110, 0xff3333);
-      this.physics.add.existing(boss);
-      boss.body.setCollideWorldBounds(true);
-      this.physics.add.collider(boss, floor);
+      // 招架提示黃光
+      bossWarning = this.add.circle(w * 0.7, h * 0.35, 25, 0xffff00).setVisible(false);
 
-      // Boss 招架黃光提示圈
-      bossWarningCircle = this.add.circle(600, 230, 25, 0xffff00).setVisible(false);
+      // 文字 UI
+      bossHpText = this.add.text(20, 20, 'BOSS HP: 1000 / 1000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
+      statusText = this.add.text(20, 55, '狀態：點擊按鈕測試操作...', { fontSize: '15px', fill: '#ffffff' });
 
-      // UI 文字
-      bossHpText = this.add.text(16, 16, 'BOSS HP: 1000 / 1000', { fontSize: '18px', fill: '#ff6600' });
-      stateText = this.add.text(16, 45, '戰鬥狀態: 觀察 Boss 招式...', { fontSize: '14px', fill: '#fff' });
+      // 相容電腦滑鼠與手機點擊的事件綁定
+      bindBtn('btn-left', () => { player.x -= 30; statusText.setText('向左移動'); });
+      bindBtn('btn-right', () => { player.x += 30; statusText.setText('向右移動'); });
+      bindBtn('btn-attack', () => doAttack());
+      bindBtn('btn-parry', () => doParry());
+      bindBtn('btn-dodge', () => doDodge());
+      bindBtn('btn-ss3', () => doSS3());
 
-      // 綁定手持虛擬按鍵
-      document.getElementById('btn-attack').addEventListener('touchstart', () => playerAttack());
-      document.getElementById('btn-parry').addEventListener('touchstart', () => playerParry());
-      document.getElementById('btn-dodge').addEventListener('touchstart', () => playerDodge());
-      document.getElementById('btn-ss3').addEventListener('touchstart', () => playerSS3());
-
-      // 啟動 Boss 攻擊 AI 迴圈
+      // 自動觸發 Boss 攻擊迴圈 (每 3.5 秒一次)
       this.time.addEvent({ delay: 3500, callback: triggerBossAttack, callbackScope: this, loop: true });
     }
 
     function update() {
-      if (bossWarningCircle) {
-        bossWarningCircle.x = boss.x;
-      }
+      if (bossWarning) bossWarning.x = boss.x;
     }
 
-    // Boss 發動可招架攻擊（黃光提示）
+    function bindBtn(id, action) {
+      const el = document.getElementById(id);
+      // 使用 pointerdown 相容滑鼠點擊與手機觸控
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        action();
+      });
+    }
+
     function triggerBossAttack() {
       if (isBossStunned || bossHp <= 0) return;
-
-      stateText.setText('⚠️ BOSS 發動重擊！[抓準黃光瞬間點擊招架！]');
-      bossWarningCircle.setVisible(true);
+      statusText.setText('⚠️ BOSS 發動重擊！【快點擊招架！】');
+      bossWarning.setVisible(true);
       isParryWindow = true;
 
-      // 1 秒後若未被招架，Boss 揮刀
       setTimeout(() => {
         if (isParryWindow && !isBossStunned) {
-          stateText.setText('💥 招架失敗！受到 Boss 重創！');
+          statusText.setText('💥 招架太慢！受到 Boss 重創！');
           player.fillColor = 0xff0000;
-          setTimeout(() => player.fillColor = 0x00aaff, 300);
+          setTimeout(() => player.fillColor = 0x00aaff, 250);
         }
-        bossWarningCircle.setVisible(false);
+        bossWarning.setVisible(false);
         isParryWindow = false;
-      }, 800);
+      }, 1000);
     }
 
-    // 玩家動作：招架 (Parry)
-    function playerParry() {
+    function doParry() {
       if (isParryWindow) {
-        // 招架成功！SAO:MD 核心體驗！
         isParryWindow = false;
         isBossStunned = true;
-        bossWarningCircle.setVisible(false);
+        bossWarning.setVisible(false);
+        boss.fillColor = 0xffd700; // Boss 變金黃色硬直
+        statusText.setText('⚡ PARRY 成功！BOSS 大硬直！【快按 SS3！】');
 
-        boss.fillColor = 0xffd700; // Boss 變成金黃色硬直狀態
-        stateText.setText('⚡ PARRY 招架成功！BOSS 陷入大硬直！[快按 SS3 發動連攜！]');
-
-        // Boss 硬直 3 秒
         setTimeout(() => {
           isBossStunned = false;
           boss.fillColor = 0xff3333;
-          stateText.setText('戰鬥狀態: Boss 恢復姿態...');
+          statusText.setText('狀態：Boss 恢復對峙...');
         }, 3000);
       } else {
-        stateText.setText('🛡️ 空招架！未抓準時機！');
+        statusText.setText('🛡️ 提早招架！沒抓到黃光時機！');
       }
     }
 
-    // 玩家動作：普通攻擊
-    function playerAttack() {
-      if (Math.abs(player.x - boss.x) < 100) {
-        let dmg = isBossStunned ? 50 : 15; // 硬直狀態下傷害加倍
-        bossHp = Math.max(0, bossHp - dmg);
-        bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
-        stateText.setText(`⚔️ 命中 Boss！造成 ${dmg} 點傷害 ${isBossStunned ? '(暴擊!)' : ''}`);
-      }
-    }
-
-    // 玩家動作：SS3 切換連攜必殺技
-    function playerSS3() {
-      if (!isBossStunned) {
-        return alert('SS3 必殺技需在【招架成功 Boss 硬直】時發動才能造成全額連攜暴擊！');
-      }
-      bossHp = Math.max(0, bossHp - 350);
+    function doAttack() {
+      // 自動靠攏防呆
+      if (Math.abs(player.x - boss.x) > 120) player.x = boss.x - 100;
+      
+      let dmg = isBossStunned ? 50 : 15;
+      bossHp = Math.max(0, bossHp - dmg);
       bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
-      stateText.setText('🔥 必殺連攜！SS3 釋放！造成 350 點巨額暴擊傷害！');
+      statusText.setText(`⚔️ 普通攻擊命中！造成 ${dmg} 傷害`);
     }
 
-    // 玩家動作：閃避
-    function playerDodge() {
+    function doSS3() {
+      if (!isBossStunned) {
+        statusText.setText('❌ SS3 失敗！必須在招架成功 Boss 硬直時發動！');
+        return;
+      }
+      player.x = boss.x - 80;
+      bossHp = Math.max(0, bossHp - 400);
+      bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+      statusText.setText('🔥 SS3 必殺連攜！造成 400 巨額暴擊傷害！');
+    }
+
+    function doDodge() {
       player.x -= 80;
-      stateText.setText('🌀 完美後撤閃避！');
+      statusText.setText('🌀 後撤閃避！');
     }
   </script>
 </body>
