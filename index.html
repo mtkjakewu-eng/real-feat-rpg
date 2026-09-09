@@ -76,8 +76,12 @@
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
       
-      // 腳踏地面的 Y 軸位置（調整至畫面 85% 高度，留出踩地空間）
-      const groundY = h * 0.85;
+      // 將地面中心抬高到 72% 的位置
+      const groundY = h * 0.72;
+
+      // 繪製一道實體灰褐色戰鬥平台 (讓角色有明確站立點)
+      this.add.rectangle(w / 2, groundY + 10, w, 20, 0x2a3242);
+      this.add.rectangle(w / 2, groundY, w, 4, 0x00aaff);
 
       // 註冊動作動畫
       this.anims.create({ key: 'anim_idle', frames: this.anims.generateFrameNumbers('knight_idle'), frameRate: 8, repeat: -1 });
@@ -86,14 +90,14 @@
       this.anims.create({ key: 'anim_parry', frames: this.anims.generateFrameNumbers('knight_parry'), frameRate: 10, repeat: 0 });
       this.anims.create({ key: 'anim_hit', frames: this.anims.generateFrameNumbers('knight_hit'), frameRate: 10, repeat: 0 });
 
-      // 建立騎士並貼齊地面
-      player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.2);
-      player.setOrigin(0.5, 1.0);
+      // 建立騎士：抬高 Y 軸並適度放大比例 (setScale 2.8)
+      player = this.add.sprite(w * 0.25, groundY, 'knight_idle').setScale(2.8);
+      player.setOrigin(0.5, 0.85); // 精準修正圖檔底部的透明留白
       player.play('anim_idle');
 
-      // 建立 Boss 並貼齊地面
-      boss = this.add.sprite(w * 0.75, groundY, 'boss').setScale(0.6);
-      boss.setOrigin(0.5, 0.95);
+      // 建立 Boss：對齊平台
+      boss = this.add.sprite(w * 0.75, groundY, 'boss').setScale(0.65);
+      boss.setOrigin(0.5, 0.88);
 
       // 綠龍呼吸浮動
       this.tweens.add({
@@ -106,7 +110,7 @@
       });
 
       // 招架提示光圈
-      bossWarning = this.add.circle(w * 0.75, groundY - 200, 25, 0xffff00).setVisible(false);
+      bossWarning = this.add.circle(w * 0.75, groundY - 210, 25, 0xffff00).setVisible(false);
 
       // UI 血條與動態文字
       bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
