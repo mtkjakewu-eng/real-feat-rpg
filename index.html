@@ -8,21 +8,12 @@
   <style>
     * { box-sizing: border-box; touch-action: manipulation; user-select: none; }
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0a0c0e; color: #fff; font-family: sans-serif; overflow: hidden; }
-    
     #game-layout { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
     #canvas-container { width: 100%; height: 60vh; position: relative; background: #12161f; }
-    
-    .instruction-overlay {
-      position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10;
-    }
-
+    .instruction-overlay { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 8px; border: 1px solid #ff6600; font-size: 0.85rem; pointer-events: none; z-index: 10; }
     .control-panel { height: 40vh; background: #141820; border-top: 2px solid #ff6600; display: flex; justify-content: space-around; align-items: center; padding: 10px; }
     .dpad-group, .action-group { display: flex; gap: 10px; align-items: center; }
-    
-    .btn {
-      width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ff6600; background: #221810; color: #fff; font-weight: bold; font-size: 0.9rem;
-      display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline: none;
-    }
+    .btn { width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ff6600; background: #221810; color: #fff; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); outline: none; }
     .btn:active { background: #ff6600 !important; transform: scale(0.9); }
     .btn-ss3 { border-color: #ffd700; background: #3a3000; color: #ffd700; font-size: 1rem; }
   </style>
@@ -32,10 +23,10 @@
   <div id="game-layout">
     <div id="canvas-container">
       <div class="instruction-overlay">
-        💡 <b>招架技術流：</b><br>
-        1. 觀察 Boss 出現<b>黃光</b><br>
-        2. 點擊<b>【招架】</b>完美彈刀讓 Boss 硬直<br>
-        3. Boss 金色硬直時，點擊<b>【SS3】</b>發動連攜！
+        💡 <b>綠龍 Boss 戰鬥流：</b><br>
+        1. 連點<b>【攻擊】</b>揮刀逼近 Boss<br>
+        2. Boss 出現<b>黃光提示</b>時點擊<b>【招架】</b>彈刀<br>
+        3. Boss 陷入硬直時，點擊<b>【SS3】</b>觸發大招！
       </div>
     </div>
 
@@ -62,64 +53,61 @@
       height: container.clientHeight,
       parent: 'canvas-container',
       physics: { default: 'arcade', arcade: { gravity: { y: 0 }, debug: false } },
-      scene: { create: create, update: update }
+      scene: { preload: preload, create: create, update: update }
     };
 
     const game = new Phaser.Game(config);
-    let player, boss, bossWarning, slashEffect;
+    let player, boss, bossWarning;
     let isParryWindow = false, isBossStunned = false;
-    let bossHp = 1000, bossHpText, statusText;
+    let bossHp = 2000, bossHpText, statusText;
+
+    function preload() {
+      // 1. 載入 Boss (綠龍) 圖片
+      this.load.image('boss', 'assets/boss.png');
+      // 2. 載入騎士動作圖檔 (預設使用 assets 資料夾下的 knight_idle，若未上傳會先用代碼補上)
+      this.load.image('knight', 'https://labs.phaser.io/assets/sprites/knight.png');
+    }
 
     function create() {
       const w = this.cameras.main.width;
       const h = this.cameras.main.height;
 
-      // 1. 地板線條
+      // 地板線條
       this.add.rectangle(w / 2, h * 0.75, w, 4, 0xff6600);
 
-      // 2. 使用純代碼生成勇者角色圖案 (藍色劍士)
-      const pGraphics = this.make.graphics({x: 0, y: 0, add: false});
-      pGraphics.fillStyle(0x00aaff, 1);
-      pGraphics.fillRect(10, 10, 30, 60); // 身體
-      pGraphics.fillStyle(0xffffff, 1);
-      pGraphics.fillRect(25, 20, 10, 10); // 眼鏡/眼睛
-      pGraphics.fillStyle(0xcccccc, 1);
-      pGraphics.fillRect(35, 35, 20, 5);  // 劍
-      pGraphics.generateTexture('playerTexture', 60, 80);
+      // 建立玩家角色 (騎士)
+      player = this.add.sprite(w * 0.25, h * 0.62, 'knight').setScale(2);
+      
+      // 建立 Boss (綠龍) 放置於右側，並放大呈現氣勢
+      boss = this.add.sprite(w * 0.7, h * 0.52, 'boss').setScale(0.6);
 
-      // 3. 使用純代碼生成 Boss 圖案 (紅色巨魔)
-      const bGraphics = this.make.graphics({x: 0, y: 0, add: false});
-      bGraphics.fillStyle(0xff3333, 1);
-      bGraphics.fillRect(10, 10, 60, 90); // 身體
-      bGraphics.fillStyle(0xffff00, 1);
-      bGraphics.fillRect(20, 25, 15, 10); // 雙眼
-      bGraphics.fillRect(45, 25, 15, 10);
-      bGraphics.generateTexture('bossTexture', 80, 110);
+      // 程式動態：為綠龍加上自然呼吸浮動動畫 (Tween)
+      this.tweens.add({
+        targets: boss,
+        y: h * 0.50,
+        duration: 1500,
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        repeat: -1
+      });
 
-      // 4. 實體化角色與 Boss
-      player = this.add.sprite(w * 0.3, h * 0.62, 'playerTexture');
-      boss = this.add.sprite(w * 0.7, h * 0.6, 'bossTexture');
+      // 招架警告光圈
+      bossWarning = this.add.circle(w * 0.7, h * 0.3, 30, 0xffff00).setVisible(false);
 
-      // 招架提示黃光
-      bossWarning = this.add.circle(w * 0.7, h * 0.35, 25, 0xffff00).setVisible(false);
+      // 血條與狀態文字
+      bossHpText = this.add.text(20, 20, 'BOSS HP: 2000 / 2000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
+      statusText = this.add.text(20, 55, '綠龍 Boss 登場！請點擊按鈕發動攻擊...', { fontSize: '15px', fill: '#ffffff' });
 
-      // 刀光特效
-      slashEffect = this.add.rectangle(0, 0, 80, 8, 0x00ffff).setVisible(false);
-
-      // UI 文字
-      bossHpText = this.add.text(20, 20, 'BOSS HP: 1000 / 1000', { fontSize: '20px', fill: '#ff6600', fontWeight: 'bold' });
-      statusText = this.add.text(20, 55, '戰鬥開始！請點擊按鈕測試...', { fontSize: '15px', fill: '#ffffff' });
-
-      // 事件綁定 (確保點擊必有回應)
-      bindBtn('btn-left', () => { player.x -= 30; statusText.setText('向左移動'); });
-      bindBtn('btn-right', () => { player.x += 30; statusText.setText('向右移動'); });
+      // 按鈕事件綁定
+      bindBtn('btn-left', () => { player.x -= 30; statusText.setText('向左位移'); });
+      bindBtn('btn-right', () => { player.x += 30; statusText.setText('向右位移'); });
       bindBtn('btn-attack', () => doAttack(this));
       bindBtn('btn-parry', () => doParry());
-      bindBtn('btn-dodge', () => doDodge());
+      bindBtn('btn-dodge', () => doDodge(this));
       bindBtn('btn-ss3', () => doSS3(this));
 
       // Boss 攻擊計時器
-      this.time.addEvent({ delay: 3500, callback: triggerBossAttack, callbackScope: this, loop: true });
+      this.time.addEvent({ delay: 4000, callback: triggerBossAttack, callbackScope: this, loop: true });
     }
 
     function update() {
@@ -131,77 +119,84 @@
       el.addEventListener('pointerdown', (e) => { e.preventDefault(); action(); });
     }
 
+    // Boss 發動攻擊邏輯
     function triggerBossAttack() {
       if (isBossStunned || bossHp <= 0) return;
-      statusText.setText('⚠️ BOSS 發動重擊！【快點擊招架！】');
+      statusText.setText('⚠️ 綠龍即將俯衝重擊！【快點擊招架！】');
       bossWarning.setVisible(true);
       boss.setTint(0xffaa00);
       isParryWindow = true;
 
       setTimeout(() => {
         if (isParryWindow && !isBossStunned) {
-          statusText.setText('💥 招架太慢！受到 Boss 重擊！');
+          statusText.setText('💥 招架太慢！受到綠龍重擊！');
           player.setTint(0xff0000);
-          setTimeout(() => player.clearTint(), 250);
+          setTimeout(() => player.clearTint(), 300);
         }
         bossWarning.setVisible(false);
         if (!isBossStunned) boss.clearTint();
         isParryWindow = false;
-      }, 1000);
+      }, 1200);
     }
 
+    // 招架機制
     function doParry() {
       if (isParryWindow) {
         isParryWindow = false;
         isBossStunned = true;
         bossWarning.setVisible(false);
-        boss.setTint(0xffff00); // 變金色表示硬直
-        statusText.setText('⚡ PARRY 招架成功！BOSS 陷入硬直！【快按 SS3！】');
+        boss.setTint(0xffff00); // 金色硬直
+        statusText.setText('⚡ PARRY 成功！綠龍被彈刀陷入硬直！【快按 SS3！】');
 
         setTimeout(() => {
           isBossStunned = false;
           boss.clearTint();
-          statusText.setText('狀態：Boss 恢復對峙...');
+          statusText.setText('狀態：綠龍恢復對峙...');
         }, 3000);
       } else {
         statusText.setText('🛡️ 提早招架！未抓到黃光時間點！');
       }
     }
 
+    // 普通攻擊
     function doAttack(scene) {
-      if (Math.abs(player.x - boss.x) > 100) player.x = boss.x - 80;
-      
-      let dmg = isBossStunned ? 50 : 15;
+      if (Math.abs(player.x - boss.x) > 150) player.x = boss.x - 110;
+      let dmg = isBossStunned ? 80 : 25;
       bossHp = Math.max(0, bossHp - dmg);
-      bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+      bossHpText.setText(`BOSS HP: ${bossHp} / 2000`);
 
-      // 斬擊特效
-      slashEffect.setPosition(boss.x - 20, boss.y).setVisible(true).setRotation(-0.5);
-      scene.tweens.add({ targets: slashEffect, alpha: 0, duration: 150, onComplete: () => { slashEffect.setVisible(false).setAlpha(1); } });
+      // 玩家揮刀向前衝刺 + 畫面震動 strike
+      scene.tweens.add({ targets: player, x: player.x + 25, duration: 80, yoyo: true });
+      scene.cameras.main.shake(100, 0.008);
 
-      statusText.setText(`⚔️ 普通攻擊命中！造成 ${dmg} 傷害`);
+      boss.setTint(0xff6666);
+      setTimeout(() => { if (!isBossStunned) boss.clearTint(); }, 100);
+
+      statusText.setText(`⚔️ 騎士揮劍！造成 ${dmg} 傷害`);
     }
 
+    // SS3 必殺連攜
     function doSS3(scene) {
       if (!isBossStunned) {
         statusText.setText('❌ SS3 失敗！必須在招架成功 Boss 硬直時發動！');
         return;
       }
-      player.x = boss.x - 70;
-      bossHp = Math.max(0, bossHp - 400);
-      bossHpText.setText(`BOSS HP: ${bossHp} / 1000`);
+      player.x = boss.x - 90;
+      bossHp = Math.max(0, bossHp - 600);
+      bossHpText.setText(`BOSS HP: ${bossHp} / 2000`);
 
-      // 必殺連攜動畫特效
-      scene.cameras.main.shake(200, 0.01);
+      // 強烈大招視覺：畫面劇烈震動 + 閃紅光
+      scene.cameras.main.shake(350, 0.02);
       boss.setTint(0xff0000);
-      setTimeout(() => { if (isBossStunned) boss.setTint(0xffff00); }, 300);
+      setTimeout(() => { if (isBossStunned) boss.setTint(0xffff00); }, 400);
 
-      statusText.setText('🔥 SS3 必殺連攜！造成 400 巨額暴擊傷害！');
+      statusText.setText('🔥 SS3 必殺連攜爆發！造成 600 巨額暴擊傷害！');
     }
 
-    function doDodge() {
-      player.x -= 80;
-      statusText.setText('🌀 後撤閃避！');
+    // 閃避
+    function doDodge(scene) {
+      scene.tweens.add({ targets: player, x: player.x - 100, duration: 150 });
+      statusText.setText('🌀 快速後撤閃避！');
     }
   </script>
 </body>
